@@ -8,4 +8,8 @@ This first stage contains a native Home screen with category filters and local s
 
 ## Build
 
-Open the project in Android Studio with JDK 17 and Android SDK 36 installed, then sync Gradle and run the `app` configuration. The build has not yet been verified in the current environment.
+The GitHub Actions workflow builds a debug APK using JDK 17, Gradle 8.13, and Android SDK 36 on every push to `main` and pull request. It can also be started manually from the Actions tab.
+
+To download the APK, open the successful **Android build** workflow run and download the `trending-news-debug-apk` artifact.
+
+For a local build, install JDK 17, Gradle 8.13, and Android SDK 36, then run `gradle :app:assembleDebug` from the project folder. The APK is created at `app/build/outputs/apk/debug/app-debug.apk`.
