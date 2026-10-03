@@ -62,7 +62,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val categories = listOf("Trending", "Nasional", "Ekonomi", "Teknologi", "Olahraga", "Hiburan", "Dunia")
+private val categories = listOf("Trending", "Nasional", "Ekonomi", "Teknologi", "Olahraga", "Hiburan", "Dunia", "Lainnya")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
