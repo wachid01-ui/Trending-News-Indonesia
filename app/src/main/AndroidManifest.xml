@@ -3,7 +3,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Trending News Indonesia"
+        android:label="Gadget &amp; Tekno News"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity

@@ -62,7 +62,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val categories = listOf("Trending", "Nasional", "Ekonomi", "Teknologi", "Olahraga", "Hiburan", "Dunia", "Lainnya")
+private val categories = listOf("Semua", "Gadget", "Smartphone", "AI", "Startup", "Gaming", "Review", "Dunia Tekno")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +81,7 @@ private fun TrendingNewsApp() {
 
 @Composable
 private fun HomeScreen() {
-    var selectedCategory by remember { mutableStateOf("Trending") }
+    var selectedCategory by remember { mutableStateOf("Semua") }
     var articles by remember { mutableStateOf<List<NewsArticle>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
@@ -105,7 +105,7 @@ private fun HomeScreen() {
         SimpleDateFormat("EEEE, d MMMM yyyy", Locale("id", "ID")).format(Date())
     }
     val visibleArticles = remember(selectedCategory, articles) {
-        if (selectedCategory == "Trending") articles
+        if (selectedCategory == "Semua") articles
         else articles.filter { it.category == selectedCategory }
     }
 
@@ -140,7 +140,7 @@ private fun HomeScreen() {
                 Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Trending News", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            Text("Gadget & Tekno News", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text(today.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("id", "ID")) else it.toString() }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -151,7 +151,7 @@ private fun HomeScreen() {
                         }
                     }
                     Spacer(Modifier.height(24.dp))
-                    Text("Jelajahi berita", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Jelajahi berita teknologi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
                 }
             }
@@ -181,7 +181,7 @@ private fun HomeScreen() {
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (selectedCategory == "Trending") "Berita pilihan" else selectedCategory, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(if (selectedCategory == "Semua") "Semua berita tekno" else selectedCategory, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("${visibleArticles.size} berita", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(12.dp))

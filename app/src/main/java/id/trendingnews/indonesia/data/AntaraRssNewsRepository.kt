@@ -23,39 +23,23 @@ data class RssFeedSource(
 )
 
 object NewsSources {
-    val antara = RssFeedSource(
-        id = "antara",
-        name = "ANTARA News",
-        feedUrl = "https://www.antaranews.com/rss/terkini.xml",
-        sourceUrl = "https://www.antaranews.com/rss",
-        allowedArticleHosts = setOf("antaranews.com"),
-    )
-
-    val tempo = RssFeedSource(
-        id = "tempo",
-        name = "Tempo.co",
-        feedUrl = "https://rss.tempo.co/",
-        sourceUrl = "https://www.tempo.co",
+    val tempoTekno = RssFeedSource(
+        id = "tempo_tekno",
+        name = "Tempo Tekno",
+        feedUrl = "https://rss.tempo.co/bisnis",
+        sourceUrl = "https://tekno.tempo.co",
         allowedArticleHosts = setOf("tempo.co"),
     )
 
-    val cnnIndonesia = RssFeedSource(
-        id = "cnnindonesia",
-        name = "CNN Indonesia",
-        feedUrl = "https://www.cnnindonesia.com/rss",
-        sourceUrl = "https://www.cnnindonesia.com",
+    val cnnTeknologi = RssFeedSource(
+        id = "cnn_teknologi",
+        name = "CNN Indonesia Teknologi",
+        feedUrl = "https://www.cnnindonesia.com/teknologi/rss",
+        sourceUrl = "https://www.cnnindonesia.com/teknologi",
         allowedArticleHosts = setOf("cnnindonesia.com"),
     )
 
-    val tribunnews = RssFeedSource(
-        id = "tribunnews",
-        name = "Tribun News",
-        feedUrl = "https://www.tribunnews.com/rss",
-        sourceUrl = "https://www.tribunnews.com",
-        allowedArticleHosts = setOf("tribunnews.com"),
-    )
-
-    val activeFeeds = listOf(antara, tempo, cnnIndonesia, tribunnews)
+    val activeFeeds = listOf(tempoTekno, cnnTeknologi)
 }
 
 class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
@@ -181,39 +165,50 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
             .firstOrNull()
             ?.let { return it }
 
-        // Use the headline only for inference. RSS descriptions can mention several
-        // subjects and would otherwise make unrelated categories win by accident.
+        // Inferensi dari judul berita
         val text = normalizeCategoryText(title)
         val keywordGroups = linkedMapOf(
-            "Ekonomi" to listOf(
-                "ekonomi", "bisnis", "pasar modal", "pasar saham", "saham", "bursa", "rupiah",
-                "investasi", "inflasi", "deflasi", "harga emas", "harga bbm", "harga pangan",
-                "perbankan", "suku bunga", "ekspor", "impor", "apbn", "pajak", "pertumbuhan ekonomi",
-                "emiten", "ihsg", "energi dan sumber daya mineral",
+            "AI" to listOf(
+                "kecerdasan buatan", "artificial intelligence", "ai", "chatgpt", "gpt",
+                "llm", "generative ai", "machine learning", "deep learning", "neural network",
+                "google gemini", "openai", "copilot", "midjourney", "stable diffusion",
+                "robot ai", "model bahasa", "large language",
             ),
-            "Teknologi" to listOf(
-                "teknologi", "tekno", "iptek", "kecerdasan buatan", "artificial intelligence", "ai",
-                "gadget", "ponsel", "smartphone", "aplikasi", "internet", "digital", "siber",
-                "robot", "perangkat lunak", "software", "startup", "pusat data", "data center",
+            "Smartphone" to listOf(
+                "smartphone", "ponsel", "hp", "handphone", "iphone", "android",
+                "samsung galaxy", "xiaomi", "oppo", "vivo", "realme", "oneplus",
+                "pixel", "snapdragon", "dimensity", "chipset", "kamera hp",
+                "layar hp", "baterai hp", "harga hp",
             ),
-            "Olahraga" to listOf(
-                "olahraga", "sepak bola", "sepakbola", "timnas", "bulutangkis", "badminton",
-                "basket", "voli", "motogp", "formula 1", "piala dunia", "atlet",
-                "olimpiade", "medali", "pertandingan", "turnamen", "persib", "persija", "pssi",
+            "Gadget" to listOf(
+                "gadget", "laptop", "tablet", "smartwatch", "jam tangan pintar",
+                "earphone", "headphone", "tws", "speaker bluetooth", "drone",
+                "kamera mirrorless", "kamera dslr", "proyektor", "monitor",
+                "keyboard", "mouse", "ssd", "harddisk", "ram", "aksesori",
+                "wearable", "ipad", "macbook", "surface",
             ),
-            "Hiburan" to listOf(
-                "hiburan", "film", "musik", "konser", "penyanyi", "aktor", "aktris", "artis",
-                "selebritas", "selebriti", "sinetron", "serial", "festival musik",
+            "Gaming" to listOf(
+                "gaming", "game", "gamer", "esport", "esports",
+                "playstation", "ps5", "ps4", "xbox", "nintendo", "switch",
+                "steam", "pc gaming", "gpu", "vga", "rtx", "rx", "fps",
+                "mobile legend", "pubg", "free fire", "valorant", "minecraft",
             ),
-            "Dunia" to listOf(
-                "internasional", "mancanegara", "luar negeri", "konflik global", "ktt internasional",
-                "pemerintah amerika serikat", "presiden amerika serikat", "pemerintah china",
-                "pemerintah jepang", "pemerintah korea selatan", "pemerintah australia",
+            "Startup" to listOf(
+                "startup", "unicorn", "pendanaan", "venture capital", "ipo teknologi",
+                "seri a", "seri b", "seri c", "valuasi", "founder", "co-founder",
+                "gojek", "tokopedia", "bukalapak", "traveloka", "fintech", "edtech",
+                "healthtech", "proptech", "agritech",
             ),
-            "Nasional" to listOf(
-                "nasional", "pemerintah indonesia", "presiden prabowo", "dpr ri", "mahkamah agung",
-                "mahkamah konstitusi", "polri", "tni", "kementerian", "gubernur", "bupati",
-                "wali kota", "pemilu", "pilkada", "kpk", "kejaksaan", "bencana di indonesia",
+            "Review" to listOf(
+                "review", "ulasan", "hands on", "unboxing", "benchmark",
+                "spesifikasi", "harga dan spesifikasi", "uji coba", "tes",
+                "vs", "perbandingan", "terbaik", "rekomendasi",
+            ),
+            "Dunia Tekno" to listOf(
+                "google", "apple", "microsoft", "meta", "amazon", "tesla",
+                "nvidia", "intel", "amd", "qualcomm", "samsung electronics",
+                "silicon valley", "elon musk", "tim cook", "satya nadella",
+                "mark zuckerberg", "big tech", "antitrust teknologi",
             ),
         )
 
@@ -223,23 +218,19 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         val highestScore = scores.values.maxOrNull()
         val bestMatches = scores.filterValues { it == highestScore }.keys
 
-        // Do not mislabel an unclear story as Nasional. Keep it visible in Trending
-        // and let users find it under the explicit fallback category.
-        return bestMatches.singleOrNull() ?: "Lainnya"
+        return bestMatches.singleOrNull() ?: "Gadget"
     }
 
     private fun categoryFromFeedLabel(label: String): String? {
         val normalized = normalizeCategoryText(label)
         return when {
-            listOf("dunia", "internasional", "international", "mancanegara", "asean").any { containsWholePhrase(normalized, it) } -> "Dunia"
-            listOf("ekonomi", "bisnis", "finansial", "keuangan", "bursa", "market").any { containsWholePhrase(normalized, it) } -> "Ekonomi"
-            listOf("teknologi", "tekno", "iptek", "sains", "gadget").any { containsWholePhrase(normalized, it) } -> "Teknologi"
-            listOf("olahraga", "sport", "sepakbola", "sepak bola", "bulutangkis").any { containsWholePhrase(normalized, it) } -> "Olahraga"
-            listOf("hiburan", "entertainment", "seleb", "film", "musik", "seni").any { containsWholePhrase(normalized, it) } -> "Hiburan"
-            listOf(
-                "nasional", "politik", "hukum", "polhukam", "metro", "humaniora", "daerah",
-                "kriminal", "pemerintahan", "peristiwa", "pemilu",
-            ).any { containsWholePhrase(normalized, it) } -> "Nasional"
+            listOf("ai", "artificial intelligence", "kecerdasan buatan", "machine learning").any { containsWholePhrase(normalized, it) } -> "AI"
+            listOf("smartphone", "ponsel", "hp", "iphone", "android").any { containsWholePhrase(normalized, it) } -> "Smartphone"
+            listOf("gadget", "laptop", "tablet", "wearable", "aksesori").any { containsWholePhrase(normalized, it) } -> "Gadget"
+            listOf("gaming", "game", "esport", "konsol").any { containsWholePhrase(normalized, it) } -> "Gaming"
+            listOf("startup", "unicorn", "fintech", "venture").any { containsWholePhrase(normalized, it) } -> "Startup"
+            listOf("review", "ulasan", "unboxing", "benchmark").any { containsWholePhrase(normalized, it) } -> "Review"
+            listOf("google", "apple", "microsoft", "meta", "amazon", "dunia tekno", "global tech").any { containsWholePhrase(normalized, it) } -> "Dunia Tekno"
             else -> null
         }
     }
