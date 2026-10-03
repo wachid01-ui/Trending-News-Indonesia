@@ -1,7 +1,11 @@
 package id.trendingnews.indonesia.data
 
 import android.util.Xml
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
@@ -10,17 +14,40 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class AntaraRssNewsRepository : NewsRepository {
+data class RssFeedSource(
+    val id: String,
+    val name: String,
+    val feedUrl: String,
+    val sourceUrl: String,
+    val allowedArticleHosts: Set<String>,
+)
+
+object NewsSources {
+    val antara = RssFeedSource(
+        id = "antara",
+        name = "ANTARA News",
+        feedUrl = "https://www.antaranews.com/rss/terkini.xml",
+        sourceUrl = "https://www.antaranews.com/rss",
+        allowedArticleHosts = setOf("antaranews.com"),
+    )
+
+    val activeFeeds = listOf(antara)
+}
+
+class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
     override suspend fun getLatestNews(): List<NewsArticle> = withContext(Dispatchers.IO) {
-        val connection = (URL(FEED_URL).openConnection() as HttpURLConnection).apply {
+        val connection = (URL(source.feedUrl).openConnection() as HttpURLConnection).apply {
             connectTimeout = 12_000
             readTimeout = 12_000
             requestMethod = "GET"
             setRequestProperty("User-Agent", "TrendingNewsIndonesia/1.0 (Android RSS reader)")
             instanceFollowRedirects = false
         }
+
         try {
-            check(connection.responseCode in 200..299) { "Feed ANTARA gagal dimuat (${connection.responseCode})" }
+            check(connection.responseCode in 200..299) {
+                "Feed ${source.name} gagal dimuat (${connection.responseCode})"
+            }
             connection.inputStream.use { input ->
                 val parser = Xml.newPullParser().apply {
                     setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
@@ -28,16 +55,19 @@ class AntaraRssNewsRepository : NewsRepository {
                 }
                 parseFeed(parser)
             }
-        } finally { connection.disconnect() }
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun parseFeed(parser: XmlPullParser): List<NewsArticle> {
         val articles = mutableListOf<NewsArticle>()
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "item") {
+        var event = parser.eventType
+        while (event != XmlPullParser.END_DOCUMENT) {
+            if (event == XmlPullParser.START_TAG && parser.name == "item") {
                 parseItem(parser)?.let(articles::add)
             }
-            parser.next()
+            event = parser.next()
         }
         return articles
     }
@@ -49,42 +79,58 @@ class AntaraRssNewsRepository : NewsRepository {
         var imageUrl: String? = null
         var date: String? = null
         var category: String? = null
-        val depth = parser.depth
+        val itemDepth = parser.depth
+
         while (true) {
             val event = parser.next()
-            if (event == XmlPullParser.END_TAG && parser.depth == depth && parser.name == "item") break
+            if (event == XmlPullParser.END_TAG && parser.depth == itemDepth && parser.name == "item") break
             if (event != XmlPullParser.START_TAG) continue
-            when (parser.name.substringAfter(':').lowercase(Locale.ROOT)) {
-                "title" -> title = parser.nextText()
-                "link" -> link = parser.nextText()
-                "description", "summary" -> description = parser.nextText()
-                "pubdate", "published", "updated" -> date = parser.nextText()
-                "category" -> category = parser.nextText()
-                "content", "thumbnail" -> imageUrl = parser.getAttributeValue(null, "url")
-                    ?: parser.getAttributeValue("http://search.yahoo.com/mrss/", "url")
+
+            val tag = parser.name.substringAfter(':').lowercase(Locale.ROOT)
+            when (tag) {
+                "title" -> title = parser.readTextValue()
+                "link" -> link = parser.readTextValue()
+                "description", "summary" -> description = parser.readTextValue()
+                "pubdate", "published", "updated" -> date = parser.readTextValue()
+                "category" -> category = parser.readTextValue()
+                "content", "thumbnail" -> {
+                    imageUrl = parser.getAttributeValue(null, "url")
+                        ?: parser.getAttributeValue("http://search.yahoo.com/mrss/", "url")
+                }
                 "enclosure" -> imageUrl = parser.getAttributeValue(null, "url") ?: imageUrl
             }
         }
+
         val safeLink = link?.trim()?.takeIf(::isAllowedArticleUrl) ?: return null
         val safeTitle = title?.trim()?.takeIf(String::isNotEmpty) ?: return null
         return NewsArticle(
-            id = safeLink, title = safeTitle,
+            id = safeLink,
+            title = safeTitle,
             description = description?.trim()?.takeIf(String::isNotEmpty),
             imageUrl = imageUrl?.takeIf(::isHttpsUrl),
-            sourceName = SOURCE_NAME, sourceUrl = SOURCE_URL, articleUrl = safeLink,
-            publishedAt = parseDate(date), category = mapCategory(category, safeTitle),
+            sourceName = source.name,
+            sourceUrl = source.sourceUrl,
+            articleUrl = safeLink,
+            publishedAt = parseDate(date),
+            category = mapCategory(category, safeTitle),
         )
     }
+
+    private fun XmlPullParser.readTextValue(): String = nextText()
 
     private fun isAllowedArticleUrl(value: String): Boolean = try {
         val url = URL(value)
         (url.protocol == "https" || url.protocol == "http") &&
-            (url.host == "antaranews.com" || url.host.endsWith(".antaranews.com"))
-    } catch (_: Exception) { false }
+            source.allowedArticleHosts.any { host -> url.host == host || url.host.endsWith(".$host") }
+    } catch (_: Exception) {
+        false
+    }
 
     private fun isHttpsUrl(value: String): Boolean = try {
         URL(value).protocol == "https"
-    } catch (_: Exception) { false }
+    } catch (_: Exception) {
+        false
+    }
 
     private fun parseDate(value: String?): Date? {
         if (value.isNullOrBlank()) return null
@@ -104,9 +150,34 @@ class AntaraRssNewsRepository : NewsRepository {
         }
     }
 
-    private companion object {
-        const val FEED_URL = "https://www.antaranews.com/rss/terkini.xml"
-        const val SOURCE_NAME = "ANTARA News"
-        const val SOURCE_URL = "https://www.antaranews.com/rss"
+}
+
+class AntaraRssNewsRepository : NewsRepository by RssNewsRepository(NewsSources.antara)
+
+class MultiSourceNewsRepository(
+    private val sources: List<NewsRepository>,
+) : NewsRepository {
+    override suspend fun getLatestNews(): List<NewsArticle> = coroutineScope {
+        val results = sources.map { source ->
+            async {
+                try {
+                    source.getLatestNews()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }.awaitAll()
+
+        val successfulFeeds = results.filterNotNull()
+        if (successfulFeeds.isEmpty()) throw NewsSourcesUnavailableException()
+
+        successfulFeeds.flatten()
+            .distinctBy { it.articleUrl.trimEnd('/').lowercase(Locale.ROOT) }
+            .sortedByDescending { it.publishedAt?.time ?: Long.MIN_VALUE }
     }
 }
+
+class NewsSourcesUnavailableException : Exception("Semua feed berita gagal dimuat")
+
