@@ -1,7 +1,10 @@
 package id.trendingnews.indonesia
 
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.trendingnews.indonesia.data.AntaraRssNewsRepository
 import id.trendingnews.indonesia.data.NewsArticle
+import androidx.browser.customtabs.CustomTabsIntent
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -78,6 +83,7 @@ private fun HomeScreen() {
     var articles by remember { mutableStateOf<List<NewsArticle>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    var selectedArticle by remember { mutableStateOf<NewsArticle?>(null) }
     val repository = remember { AntaraRssNewsRepository() }
     val scope = rememberCoroutineScope()
     suspend fun refreshNews() {
@@ -101,7 +107,7 @@ private fun HomeScreen() {
 
     Scaffold(
         bottomBar = {
-            BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
+            if (selectedArticle == null) BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
                 listOf("Beranda" to "⌂", "Bookmark" to "♡", "Pengaturan" to "⚙").forEachIndexed { index, (label, icon) ->
                     NavigationBarItem(
                         selected = index == 0,
@@ -115,6 +121,13 @@ private fun HomeScreen() {
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+        if (selectedArticle != null) {
+            ArticleReader(
+                article = selectedArticle!!,
+                modifier = Modifier.padding(padding),
+                onBack = { selectedArticle = null },
+            )
+        } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 20.dp),
@@ -185,16 +198,21 @@ private fun HomeScreen() {
                 }
             }
             items(visibleArticles, key = { it.id }) { article ->
-                NewsCard(article, Modifier.padding(horizontal = 20.dp, vertical = 7.dp))
+                NewsCard(
+                    article,
+                    Modifier.padding(horizontal = 20.dp, vertical = 7.dp),
+                    onClick = { selectedArticle = article },
+                )
             }
+        }
         }
     }
 }
 
 @Composable
-private fun NewsCard(article: NewsArticle, modifier: Modifier = Modifier) {
+private fun NewsCard(article: NewsArticle, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -230,6 +248,57 @@ private fun NewsCard(article: NewsArticle, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+private fun ArticleReader(article: NewsArticle, modifier: Modifier = Modifier, onBack: () -> Unit) {
+    val context = LocalContext.current
+    var openError by remember(article.id) { mutableStateOf(false) }
+    val uri = remember(article.articleUrl) { Uri.parse(article.articleUrl) }
+    val isAllowedUrl = uri.scheme in listOf("https", "http") && !uri.host.isNullOrBlank()
+
+    BackHandler(onBack = onBack)
+    Column(modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Text("‹  Kembali", Modifier.clickable(onClick = onBack).padding(vertical = 8.dp), color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(20.dp))
+        Text(article.category, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(8.dp))
+        Text(article.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Text("${article.sourceName} • ${relativeTime(article.publishedAt)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        Text(uri.host.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(24.dp))
+        Text(
+            article.description?.takeIf(String::isNotBlank)
+                ?: "Baca berita selengkapnya langsung dari sumber aslinya. Artikel lengkap tetap berada di situs penerbit.",
+            style = MaterialTheme.typography.bodyLarge,
+            lineHeight = 25.sp,
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(
+            enabled = isAllowedUrl,
+            onClick = {
+                try {
+                    CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, uri)
+                    openError = false
+                } catch (_: ActivityNotFoundException) {
+                    openError = true
+                } catch (_: SecurityException) {
+                    openError = true
+                }
+            },
+        ) { Text("Baca artikel asli") }
+        if (!isAllowedUrl || openError) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (!isAllowedUrl) "Tautan artikel tidak valid atau tidak aman."
+                else "Browser tidak dapat dibuka. Coba lagi nanti.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
 private fun relativeTime(publishedAt: Date?): String {
     if (publishedAt == null) return "waktu tidak tersedia"
     val minutes = ((System.currentTimeMillis() - publishedAt.time) / 60_000).coerceAtLeast(0)
@@ -240,3 +309,4 @@ private fun relativeTime(publishedAt: Date?): String {
         else -> "${minutes / (24 * 60)} hari lalu"
     }
 }
+
