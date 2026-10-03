@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -32,40 +33,29 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.trendingnews.indonesia.data.AntaraRssNewsRepository
+import id.trendingnews.indonesia.data.NewsArticle
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private val categories = listOf("Trending", "Nasional", "Ekonomi", "Teknologi", "Olahraga", "Hiburan", "Dunia")
-
-private data class NewsArticle(
-    val id: String,
-    val title: String,
-    val sourceName: String,
-    val publishedAtLabel: String,
-    val category: String,
-    val imageColors: List<Color>,
-)
-
-private val sampleArticles = listOf(
-    NewsArticle("1", "Transformasi digital dorong peluang baru bagi UMKM Indonesia", "Kompas.com", "25 menit lalu", "Nasional", listOf(Color(0xFF1565C0), Color(0xFF64B5F6))),
-    NewsArticle("2", "Pasar keuangan Asia bergerak positif, investor cermati arah ekonomi", "CNBC Indonesia", "1 jam lalu", "Ekonomi", listOf(Color(0xFF00695C), Color(0xFF4DB6AC))),
-    NewsArticle("3", "Inovasi kecerdasan buatan makin dekat dengan kehidupan sehari-hari", "Tekno", "2 jam lalu", "Teknologi", listOf(Color(0xFF4527A0), Color(0xFF9575CD))),
-    NewsArticle("4", "Tim nasional bersiap menghadapi laga penting pekan ini", "Bola.com", "3 jam lalu", "Olahraga", listOf(Color(0xFFAD1457), Color(0xFFF06292))),
-    NewsArticle("5", "Deretan film lokal menarik perhatian penonton akhir pekan", "CNN Indonesia", "4 jam lalu", "Hiburan", listOf(Color(0xFFEF6C00), Color(0xFFFFB74D))),
-)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,12 +75,28 @@ private fun TrendingNewsApp() {
 @Composable
 private fun HomeScreen() {
     var selectedCategory by remember { mutableStateOf("Trending") }
+    var articles by remember { mutableStateOf<List<NewsArticle>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    val repository = remember { AntaraRssNewsRepository() }
+    val scope = rememberCoroutineScope()
+    suspend fun refreshNews() {
+        isLoading = true
+        loadError = null
+        try {
+            articles = repository.getLatestNews()
+        } catch (_: Exception) {
+            loadError = "Feed berita gagal dimuat. Periksa koneksi internet, lalu coba lagi."
+        }
+        isLoading = false
+    }
+    LaunchedEffect(Unit) { refreshNews() }
     val today = remember {
         SimpleDateFormat("EEEE, d MMMM yyyy", Locale("id", "ID")).format(Date())
     }
-    val visibleArticles = remember(selectedCategory) {
-        if (selectedCategory == "Trending") sampleArticles
-        else sampleArticles.filter { it.category == selectedCategory }
+    val visibleArticles = remember(selectedCategory, articles) {
+        if (selectedCategory == "Trending") articles
+        else articles.filter { it.category == selectedCategory }
     }
 
     Scaffold(
@@ -163,9 +169,19 @@ private fun HomeScreen() {
                 }
                 Spacer(Modifier.height(12.dp))
             }
-            if (visibleArticles.isEmpty()) {
+            if (isLoading && articles.isEmpty()) {
+                item { Text("Memuat berita…", Modifier.padding(horizontal = 20.dp, vertical = 28.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            } else if (loadError != null && articles.isEmpty()) {
                 item {
-                    Text("Belum ada berita untuk kategori ini.", Modifier.padding(horizontal = 20.dp, vertical = 28.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+                        Text(loadError.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { scope.launch { refreshNews() } }) { Text("Coba lagi") }
+                    }
+                }
+            } else if (visibleArticles.isEmpty()) {
+                item {
+                    Text(if (articles.isEmpty()) "Tidak ada berita tersedia." else "Belum ada berita untuk kategori ini.", Modifier.padding(horizontal = 20.dp, vertical = 28.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             items(visibleArticles, key = { it.id }) { article ->
@@ -186,7 +202,7 @@ private fun NewsCard(article: NewsArticle, modifier: Modifier = Modifier) {
         Column {
             Box(
                 Modifier.fillMaxWidth().height(148.dp)
-                    .background(Brush.linearGradient(article.imageColors)),
+                    .background(Brush.linearGradient(listOf(Color(0xFF1565C0), Color(0xFF64B5F6)))),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("✦", fontSize = 44.sp, color = Color.White.copy(alpha = 0.88f))
@@ -203,13 +219,24 @@ private fun NewsCard(article: NewsArticle, modifier: Modifier = Modifier) {
                     Text(article.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(9.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(article.sourceName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
-                        Text("  •  ${article.publishedAtLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(article.sourceName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("  •  ${relativeTime(article.publishedAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Spacer(Modifier.width(8.dp))
                 Text("♡", Modifier.clickable { }.padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 25.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+private fun relativeTime(publishedAt: Date?): String {
+    if (publishedAt == null) return "waktu tidak tersedia"
+    val minutes = ((System.currentTimeMillis() - publishedAt.time) / 60_000).coerceAtLeast(0)
+    return when {
+        minutes < 1 -> "baru saja"
+        minutes < 60 -> "$minutes menit lalu"
+        minutes < 24 * 60 -> "${minutes / 60} jam lalu"
+        else -> "${minutes / (24 * 60)} hari lalu"
     }
 }
