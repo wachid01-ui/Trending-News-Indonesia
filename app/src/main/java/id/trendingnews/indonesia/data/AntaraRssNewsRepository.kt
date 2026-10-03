@@ -31,7 +31,31 @@ object NewsSources {
         allowedArticleHosts = setOf("antaranews.com"),
     )
 
-    val activeFeeds = listOf(antara)
+    val tempo = RssFeedSource(
+        id = "tempo",
+        name = "Tempo.co",
+        feedUrl = "https://rss.tempo.co/",
+        sourceUrl = "https://www.tempo.co",
+        allowedArticleHosts = setOf("tempo.co"),
+    )
+
+    val cnnIndonesia = RssFeedSource(
+        id = "cnnindonesia",
+        name = "CNN Indonesia",
+        feedUrl = "https://www.cnnindonesia.com/rss",
+        sourceUrl = "https://www.cnnindonesia.com",
+        allowedArticleHosts = setOf("cnnindonesia.com"),
+    )
+
+    val tribunnews = RssFeedSource(
+        id = "tribunnews",
+        name = "Tribun News",
+        feedUrl = "https://www.tribunnews.com/rss",
+        sourceUrl = "https://www.tribunnews.com",
+        allowedArticleHosts = setOf("tribunnews.com"),
+    )
+
+    val activeFeeds = listOf(antara, tempo, cnnIndonesia, tribunnews)
 }
 
 class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
@@ -41,7 +65,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
             readTimeout = 12_000
             requestMethod = "GET"
             setRequestProperty("User-Agent", "TrendingNewsIndonesia/1.0 (Android RSS reader)")
-            instanceFollowRedirects = false
+            instanceFollowRedirects = true
         }
 
         try {
@@ -134,8 +158,20 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
 
     private fun parseDate(value: String?): Date? {
         if (value.isNullOrBlank()) return null
-        return try { SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US).parse(value.trim()) }
-        catch (_: Exception) { null }
+        val cleaned = value.trim()
+        // Format RFC 822 (ANTARA, Tribun): "Mon, 01 Jan 2024 10:00:00 +0700"
+        // Format ISO 8601 (Tempo, CNN):    "2024-01-01T10:00:00+07:00"
+        val formats = listOf(
+            "EEE, dd MMM yyyy HH:mm:ss z",
+            "EEE, dd MMM yyyy HH:mm:ss Z",
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd HH:mm:ss",
+        )
+        for (fmt in formats) {
+            try { return SimpleDateFormat(fmt, Locale.US).parse(cleaned) } catch (_: Exception) {}
+        }
+        return null
     }
 
     private fun mapCategory(feedCategories: List<String>, title: String): String {
