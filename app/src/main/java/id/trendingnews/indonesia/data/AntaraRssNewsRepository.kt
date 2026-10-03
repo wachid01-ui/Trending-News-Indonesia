@@ -78,7 +78,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         var description: String? = null
         var imageUrl: String? = null
         var date: String? = null
-        var category: String? = null
+        val feedCategories = mutableListOf<String>()
         val itemDepth = parser.depth
 
         while (true) {
@@ -92,7 +92,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
                 "link" -> link = parser.readTextValue()
                 "description", "summary" -> description = parser.readTextValue()
                 "pubdate", "published", "updated" -> date = parser.readTextValue()
-                "category" -> category = parser.readTextValue()
+                "category" -> parser.readTextValue().trim().takeIf(String::isNotEmpty)?.let(feedCategories::add)
                 "content", "thumbnail" -> {
                     imageUrl = parser.getAttributeValue(null, "url")
                         ?: parser.getAttributeValue("http://search.yahoo.com/mrss/", "url")
@@ -112,7 +112,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
             sourceUrl = source.sourceUrl,
             articleUrl = safeLink,
             publishedAt = parseDate(date),
-            category = mapCategory(category, safeTitle),
+            category = mapCategory(feedCategories, safeTitle),
         )
     }
 
@@ -138,17 +138,83 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         catch (_: Exception) { null }
     }
 
-    private fun mapCategory(feedCategory: String?, title: String): String {
-        val value = (feedCategory.orEmpty() + " " + title).lowercase(Locale.ROOT)
+    private fun mapCategory(feedCategories: List<String>, title: String): String {
+        // Feed labels are more authoritative than guessing from the headline.
+        feedCategories
+            .mapNotNull(::categoryFromFeedLabel)
+            .firstOrNull()
+            ?.let { return it }
+
+        // Use the headline only for inference. RSS descriptions can mention several
+        // subjects and would otherwise make unrelated categories win by accident.
+        val text = normalizeCategoryText(title)
+        val keywordGroups = linkedMapOf(
+            "Ekonomi" to listOf(
+                "ekonomi", "bisnis", "pasar modal", "pasar saham", "saham", "bursa", "rupiah",
+                "investasi", "inflasi", "deflasi", "harga emas", "harga bbm", "harga pangan",
+                "perbankan", "suku bunga", "ekspor", "impor", "apbn", "pajak", "pertumbuhan ekonomi",
+                "emiten", "ihsg", "energi dan sumber daya mineral",
+            ),
+            "Teknologi" to listOf(
+                "teknologi", "tekno", "iptek", "kecerdasan buatan", "artificial intelligence", "ai",
+                "gadget", "ponsel", "smartphone", "aplikasi", "internet", "digital", "siber",
+                "robot", "perangkat lunak", "software", "startup", "pusat data", "data center",
+            ),
+            "Olahraga" to listOf(
+                "olahraga", "sepak bola", "sepakbola", "timnas", "bulutangkis", "badminton",
+                "basket", "voli", "motogp", "formula 1", "piala dunia", "atlet",
+                "olimpiade", "medali", "pertandingan", "turnamen", "persib", "persija", "pssi",
+            ),
+            "Hiburan" to listOf(
+                "hiburan", "film", "musik", "konser", "penyanyi", "aktor", "aktris", "artis",
+                "selebritas", "selebriti", "sinetron", "serial", "festival musik",
+            ),
+            "Dunia" to listOf(
+                "internasional", "mancanegara", "luar negeri", "konflik global", "ktt internasional",
+                "pemerintah amerika serikat", "presiden amerika serikat", "pemerintah china",
+                "pemerintah jepang", "pemerintah korea selatan", "pemerintah australia",
+            ),
+            "Nasional" to listOf(
+                "nasional", "pemerintah indonesia", "presiden prabowo", "dpr ri", "mahkamah agung",
+                "mahkamah konstitusi", "polri", "tni", "kementerian", "gubernur", "bupati",
+                "wali kota", "pemilu", "pilkada", "kpk", "kejaksaan", "bencana di indonesia",
+            ),
+        )
+
+        val scores = keywordGroups.mapValues { (_, keywords) ->
+            keywords.count { keyword -> containsWholePhrase(text, keyword) }
+        }.filterValues { it > 0 }
+        val highestScore = scores.values.maxOrNull()
+        val bestMatches = scores.filterValues { it == highestScore }.keys
+
+        // Do not mislabel an unclear story as Nasional. Keep it visible in Trending
+        // and let users find it under the explicit fallback category.
+        return bestMatches.singleOrNull() ?: "Lainnya"
+    }
+
+    private fun categoryFromFeedLabel(label: String): String? {
+        val normalized = normalizeCategoryText(label)
         return when {
-            listOf("ekonomi", "bisnis", "pasar", "rupiah", "investasi").any(value::contains) -> "Ekonomi"
-            listOf("tekno", "teknologi", "digital", "kecerdasan buatan", "ai ").any(value::contains) -> "Teknologi"
-            listOf("olahraga", "sepak bola", "sepakbola", "timnas", "bulutangkis").any(value::contains) -> "Olahraga"
-            listOf("hiburan", "film", "musik", "selebritas").any(value::contains) -> "Hiburan"
-            listOf("dunia", "internasional", "asean").any(value::contains) -> "Dunia"
-            else -> "Nasional"
+            listOf("dunia", "internasional", "international", "mancanegara", "asean").any { containsWholePhrase(normalized, it) } -> "Dunia"
+            listOf("ekonomi", "bisnis", "finansial", "keuangan", "bursa", "market").any { containsWholePhrase(normalized, it) } -> "Ekonomi"
+            listOf("teknologi", "tekno", "iptek", "sains", "gadget").any { containsWholePhrase(normalized, it) } -> "Teknologi"
+            listOf("olahraga", "sport", "sepakbola", "sepak bola", "bulutangkis").any { containsWholePhrase(normalized, it) } -> "Olahraga"
+            listOf("hiburan", "entertainment", "seleb", "film", "musik", "seni").any { containsWholePhrase(normalized, it) } -> "Hiburan"
+            listOf(
+                "nasional", "politik", "hukum", "polhukam", "metro", "humaniora", "daerah",
+                "kriminal", "pemerintahan", "peristiwa", "pemilu",
+            ).any { containsWholePhrase(normalized, it) } -> "Nasional"
+            else -> null
         }
     }
+
+    private fun normalizeCategoryText(value: String): String =
+        value.lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+            .trim()
+
+    private fun containsWholePhrase(text: String, phrase: String): Boolean =
+        " $text ".contains(" ${normalizeCategoryText(phrase)} ")
 
 }
 
