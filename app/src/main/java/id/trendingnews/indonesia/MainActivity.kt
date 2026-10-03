@@ -52,8 +52,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import id.trendingnews.indonesia.data.AntaraRssNewsRepository
+import id.trendingnews.indonesia.data.MultiSourceNewsRepository
 import id.trendingnews.indonesia.data.NewsArticle
+import id.trendingnews.indonesia.data.NewsSources
+import id.trendingnews.indonesia.data.RssNewsRepository
 import androidx.browser.customtabs.CustomTabsIntent
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -84,7 +86,9 @@ private fun HomeScreen() {
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var selectedArticle by remember { mutableStateOf<NewsArticle?>(null) }
-    val repository = remember { AntaraRssNewsRepository() }
+    val repository = remember {
+        MultiSourceNewsRepository(NewsSources.activeFeeds.map(::RssNewsRepository))
+    }
     val scope = rememberCoroutineScope()
     suspend fun refreshNews() {
         isLoading = true
