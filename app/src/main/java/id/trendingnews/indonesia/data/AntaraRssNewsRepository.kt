@@ -112,9 +112,16 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
                 "description", "summary" -> description = parser.readTextValue()
                 "pubdate", "published", "updated" -> date = parser.readTextValue()
                 "category" -> parser.readTextValue().trim().takeIf(String::isNotEmpty)?.let(feedCategories::add)
+                "img", "image" -> {
+                    val attr = parser.getAttributeValue(null, "url")
+                        ?: parser.getAttributeValue(null, "src")
+                    imageUrl = attr ?: parser.readTextValue().trim().takeIf(String::isNotEmpty) ?: imageUrl
+                }
                 "content", "thumbnail" -> {
                     imageUrl = parser.getAttributeValue(null, "url")
                         ?: parser.getAttributeValue("http://search.yahoo.com/mrss/", "url")
+                        ?: parser.getAttributeValue(null, "src")
+                        ?: imageUrl
                 }
                 "enclosure" -> imageUrl = parser.getAttributeValue(null, "url") ?: imageUrl
             }
@@ -123,7 +130,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         val safeLink = link?.trim()?.takeIf(::isAllowedArticleUrl) ?: return null
         val safeTitle = cleanHtmlText(title?.trim())?.takeIf(String::isNotEmpty) ?: return null
         val cleanedDesc = cleanHtmlText(description)
-        val extractedImage = (imageUrl ?: extractImageUrlFromHtml(description))?.takeIf(::isHttpsUrl)
+        val extractedImage = (imageUrl ?: extractImageUrlFromHtml(description))?.trim()?.takeIf(::isImageUrl)
 
         return NewsArticle(
             id = safeLink,
@@ -148,8 +155,9 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         false
     }
 
-    private fun isHttpsUrl(value: String): Boolean = try {
-        URL(value).protocol == "https"
+    private fun isImageUrl(value: String): Boolean = try {
+        val url = URL(value)
+        (url.protocol == "https" || url.protocol == "http") && url.host.isNotBlank()
     } catch (_: Exception) {
         false
     }
@@ -157,7 +165,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
     private fun extractImageUrlFromHtml(html: String?): String? {
         if (html == null) return null
         val match = Regex("""<img[^>]+src=["'](https?://[^"']+)["']""", RegexOption.IGNORE_CASE).find(html)
-        return match?.groupValues?.get(1)?.takeIf(::isHttpsUrl)
+        return match?.groupValues?.get(1)?.takeIf(::isImageUrl)
     }
 
     private fun cleanHtmlText(text: String?): String? {
