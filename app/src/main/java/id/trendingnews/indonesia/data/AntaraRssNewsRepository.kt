@@ -59,7 +59,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
             connectTimeout = 12_000
             readTimeout = 12_000
             requestMethod = "GET"
-            setRequestProperty("User-Agent", "TrendingNewsIndonesia/1.0 (Android RSS reader)")
+            setRequestProperty("User-Agent", "Teknonesia/1.0 (Android RSS reader)")
             instanceFollowRedirects = true
         }
 

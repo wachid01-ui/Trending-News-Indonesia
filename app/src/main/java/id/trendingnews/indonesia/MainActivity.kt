@@ -309,7 +309,7 @@ private fun HomeScreenContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "Gadget & Tekno News",
+                            "Teknonesia",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
@@ -595,9 +595,9 @@ private fun SettingsScreenContent(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(Modifier.padding(16.dp)) {
-                Text("Gadget & Tekno News", fontWeight = FontWeight.Bold)
+                Text("Teknonesia", fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                Text("Versi 1.0 (Native Jetpack Compose)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Versi 1.0 • Berita Gadget & Teknologi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = onRefreshNews,

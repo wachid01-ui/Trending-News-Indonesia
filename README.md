@@ -1,28 +1,38 @@
-# Trending News Indonesia (Gadget & Tekno News)
+# Teknonesia
 
-A modern Android tech news aggregator app built natively with **Kotlin** and **Jetpack Compose (Material 3)**.
+A modern Android tech & gadget news aggregator app for Indonesia, built natively with **Kotlin** and **Jetpack Compose (Material 3)**.
 
 ---
 
-## 📱 Features & Current Implementation
+## 📱 Features & Highlights
 
 - **Live Multi-Source RSS Aggregation**:
-  - Fetches real-time tech news from major Indonesian media outlets (e.g., **Tempo Tekno**, **CNN Indonesia Teknologi**).
+  - Fetches real-time tech news from top Indonesian publishers (**CNN Indonesia Teknologi**, **Antara Tekno**, and **Tempo Bisnis & Tekno**).
   - Parallel background fetching using Kotlin Coroutines (`async` / `awaitAll`).
-  - Native XML parsing via `XmlPullParser` with host validation and deduplication.
+  - Native XML parsing via `XmlPullParser` with host validation, deduplication, and HTML sanitization.
   
+- **Coil Async Image Loading**:
+  - Automatically loads and caches rich news article thumbnails with crossfade transitions and placeholder gradients.
+
 - **Smart Category Filtering**:
   - Automatic category classification using RSS metadata and intelligent keyword scoring.
   - Categories: `Semua`, `Gadget`, `Smartphone`, `AI`, `Startup`, `Gaming`, `Review`, `Dunia Tekno`.
 
-- **In-App Article Reader & Chrome Custom Tabs**:
-  - Built-in preview screen displaying article details, summaries, metadata, and relative timestamps (e.g., *"10 menit lalu"*).
-  - Safe, fast in-app external reading via **AndroidX Custom Tabs** with URL validation.
+- **Real-Time In-App Search**:
+  - Instant live search by title and description with clear actions.
 
-- **Adaptive Modern UI**:
-  - Built with **Jetpack Compose** & **Material Design 3**.
-  - Dynamic **Dark Theme** and **Light Theme** support based on system settings.
-  - State handling for Loading, Error (with Retry action), and Empty states.
+- **Bookmark & Saved Articles**:
+  - Bookmark favorite articles to read offline / later with dedicated Bookmark screen.
+
+- **In-App Article Reader & Chrome Custom Tabs**:
+  - Built-in reader screen displaying article details, summaries, metadata, and relative timestamps (e.g., *"10 menit lalu"*).
+  - Social sharing via Android Share Sheet.
+  - Safe, fast external reading via **AndroidX Custom Tabs**.
+
+- **Multi-Tab Modern UI**:
+  - **Beranda (Home)**, **Bookmark**, and **Pengaturan (Settings)** tabs.
+  - Settings allows users to toggle active RSS sources on/off.
+  - Dynamic **Dark Theme** and **Light Theme** support.
 
 ---
 
@@ -30,6 +40,7 @@ A modern Android tech news aggregator app built natively with **Kotlin** and **J
 
 - **Language:** Kotlin (JVM Target 17)
 - **UI Framework:** Jetpack Compose + Material 3 (Compose BOM 2026.04.01)
+- **Image Loader:** Coil Compose (`io.coil-kt:coil-compose:2.7.0`)
 - **Asynchronous:** Kotlin Coroutines (`Dispatchers.IO`, `async`, `awaitAll`)
 - **Networking & Parsing:** `HttpURLConnection`, Android `XmlPullParser`
 - **External Web Reader:** `androidx.browser:browser` (Custom Tabs)
@@ -44,11 +55,11 @@ A modern Android tech news aggregator app built natively with **Kotlin** and **J
 app/src/main/
 ├── AndroidManifest.xml
 └── java/id/trendingnews/indonesia/
-    ├── MainActivity.kt                # Compose UI: App Root, HomeScreen, NewsCard, ArticleReader
+    ├── MainActivity.kt                # Compose UI: MainScreen, HomeScreen, BookmarkScreen, SettingsScreen, NewsCard, ArticleReader
     └── data/
         ├── NewsArticle.kt             # Data model for news articles
         ├── NewsRepository.kt          # Interface definition for news repositories
-        └── AntaraRssNewsRepository.kt # MultiSourceNewsRepository, RssNewsRepository & category classifier
+        └── AntaraRssNewsRepository.kt # MultiSourceNewsRepository, RssNewsRepository, NewsSources & category classifier
 ```
 
 ---
