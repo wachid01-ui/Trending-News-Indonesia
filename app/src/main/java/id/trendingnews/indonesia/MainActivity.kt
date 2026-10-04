@@ -30,10 +30,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import id.trendingnews.indonesia.data.MultiSourceNewsRepository
@@ -117,6 +120,7 @@ private fun MainScreen() {
     var selectedArticle by remember { mutableStateOf<NewsArticle?>(null) }
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showDisclaimerDialog by remember { mutableStateOf(true) }
     var enabledSourceIds by remember {
         mutableStateOf(NewsSources.activeFeeds.map { it.id }.toSet())
     }
@@ -192,6 +196,10 @@ private fun MainScreen() {
         } else if (currentTab != ScreenTab.BERANDA) {
             currentTab = ScreenTab.BERANDA
         }
+    }
+
+    if (showDisclaimerDialog) {
+        DisclaimerDialog(onDismiss = { showDisclaimerDialog = false })
     }
 
     Scaffold(
@@ -271,9 +279,101 @@ private fun MainScreen() {
                                 enabledSourceIds - sourceId
                             }
                         },
+                        onShowDisclaimer = { showDisclaimerDialog = true },
                         onRefreshNews = { scope.launch { fetchNews() } },
                         modifier = Modifier.padding(padding),
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisclaimerDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("✦", fontSize = 22.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Teknonesia",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "Deklarasi & Panduan Singkat",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(14.dp))
+
+                Text(
+                    "📌 Deklarasi Agregator Berita & HAKI",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Teknonesia adalah aplikasi agregator berita independen. Kami menyajikan ringkasan berita dari feed RSS publik yang disediakan oleh masing-masing media penerbit (seperti CNN Indonesia, ANTARA News, dan Tempo).\n\nSeluruh hak cipta, merek dagang, naskah berita, foto, dan hak kekayaan intelektual (HAKI) sepenuhnya tetap menjadi milik sah masing-masing penerbit berita asli. Kami tidak mengklaim kepemilikan atas konten tersebut dan selalu menyertakan tautan langsung ke situs resmi penerbit.",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    "💡 Panduan Singkat Penggunaan",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "• Filter Kategori: Pilih topik favorit (Gadget, Smartphone, AI, Gaming, Startup, dll.).\n" +
+                    "• Pencarian (⌕): Ketuk ikon search di pojok atas untuk mencari topik atau berita spesifik.\n" +
+                    "• Baca & Simpan: Ketuk berita untuk membaca ringkasan atau simpan ke Bookmark (♡) untuk dibaca nanti.\n" +
+                    "• Baca Artikel Lengkap: Ketuk tombol 'Baca Artikel Lengkap di Web' untuk langsung diarahkan ke portal resmi penerbit.",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(22.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Saya Mengerti & Lanjutkan", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -533,6 +633,7 @@ private fun BookmarkScreenContent(
 private fun SettingsScreenContent(
     enabledSourceIds: Set<String>,
     onToggleSource: (String, Boolean) -> Unit,
+    onShowDisclaimer: () -> Unit,
     onRefreshNews: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -586,7 +687,7 @@ private fun SettingsScreenContent(
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("Aplikasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Aplikasi & Informasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(12.dp))
 
         Card(
@@ -598,7 +699,15 @@ private fun SettingsScreenContent(
                 Text("Teknonesia", fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text("Versi 1.0 • Berita Gadget & Teknologi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = onShowDisclaimer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Deklarasi & Panduan Aplikasi")
+                }
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = onRefreshNews,
                     modifier = Modifier.fillMaxWidth(),
