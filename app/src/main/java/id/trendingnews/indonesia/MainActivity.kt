@@ -198,7 +198,7 @@ private fun MainScreen() {
         bottomBar = {
             if (selectedArticle == null) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    ScreenTab.values().forEach { tab ->
+                    ScreenTab.entries.forEach { tab ->
                         val isSelected = currentTab == tab
                         NavigationBarItem(
                             selected = isSelected,
@@ -426,7 +426,7 @@ private fun HomeScreenContent(
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                    horizontalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(36.dp))
                     Spacer(Modifier.height(12.dp))
