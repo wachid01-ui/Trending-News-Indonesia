@@ -23,12 +23,12 @@ data class RssFeedSource(
 )
 
 object NewsSources {
-    val tempoTekno = RssFeedSource(
-        id = "tempo_tekno",
-        name = "Tempo Tekno",
-        feedUrl = "https://rss.tempo.co/bisnis",
-        sourceUrl = "https://tekno.tempo.co",
-        allowedArticleHosts = setOf("tempo.co"),
+    val antaraTekno = RssFeedSource(
+        id = "antara_tekno",
+        name = "Antara Tekno",
+        feedUrl = "https://www.antaranews.com/rss/tekno.xml",
+        sourceUrl = "https://tekno.antaranews.com",
+        allowedArticleHosts = setOf("antaranews.com"),
     )
 
     val cnnTeknologi = RssFeedSource(
@@ -39,7 +39,18 @@ object NewsSources {
         allowedArticleHosts = setOf("cnnindonesia.com"),
     )
 
-    val activeFeeds = listOf(tempoTekno, cnnTeknologi)
+    val tempoTekno = RssFeedSource(
+        id = "tempo_tekno",
+        name = "Tempo Bisnis & Tekno",
+        feedUrl = "https://rss.tempo.co/bisnis",
+        sourceUrl = "https://tempo.co",
+        allowedArticleHosts = setOf("tempo.co"),
+    )
+
+    // Backward compatibility alias
+    val antara = antaraTekno
+
+    val activeFeeds = listOf(antaraTekno, cnnTeknologi, tempoTekno)
 }
 
 class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
@@ -110,12 +121,15 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         }
 
         val safeLink = link?.trim()?.takeIf(::isAllowedArticleUrl) ?: return null
-        val safeTitle = title?.trim()?.takeIf(String::isNotEmpty) ?: return null
+        val safeTitle = cleanHtmlText(title?.trim())?.takeIf(String::isNotEmpty) ?: return null
+        val cleanedDesc = cleanHtmlText(description)
+        val extractedImage = (imageUrl ?: extractImageUrlFromHtml(description))?.takeIf(::isHttpsUrl)
+
         return NewsArticle(
             id = safeLink,
             title = safeTitle,
-            description = description?.trim()?.takeIf(String::isNotEmpty),
-            imageUrl = imageUrl?.takeIf(::isHttpsUrl),
+            description = cleanedDesc,
+            imageUrl = extractedImage,
             sourceName = source.name,
             sourceUrl = source.sourceUrl,
             articleUrl = safeLink,
@@ -140,11 +154,29 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
         false
     }
 
+    private fun extractImageUrlFromHtml(html: String?): String? {
+        if (html == null) return null
+        val match = Regex("""<img[^>]+src=["'](https?://[^"']+)["']""", RegexOption.IGNORE_CASE).find(html)
+        return match?.groupValues?.get(1)?.takeIf(::isHttpsUrl)
+    }
+
+    private fun cleanHtmlText(text: String?): String? {
+        if (text == null) return null
+        return text.replace(Regex("<[^>]*>"), "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .trim()
+            .takeIf(String::isNotEmpty)
+    }
+
     private fun parseDate(value: String?): Date? {
         if (value.isNullOrBlank()) return null
         val cleaned = value.trim()
-        // Format RFC 822 (ANTARA, Tribun): "Mon, 01 Jan 2024 10:00:00 +0700"
-        // Format ISO 8601 (Tempo, CNN):    "2024-01-01T10:00:00+07:00"
         val formats = listOf(
             "EEE, dd MMM yyyy HH:mm:ss z",
             "EEE, dd MMM yyyy HH:mm:ss Z",
@@ -159,13 +191,11 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
     }
 
     private fun mapCategory(feedCategories: List<String>, title: String): String {
-        // Feed labels are more authoritative than guessing from the headline.
         feedCategories
             .mapNotNull(::categoryFromFeedLabel)
             .firstOrNull()
             ?.let { return it }
 
-        // Inferensi dari judul berita
         val text = normalizeCategoryText(title)
         val keywordGroups = linkedMapOf(
             "AI" to listOf(
@@ -245,7 +275,7 @@ class RssNewsRepository(private val source: RssFeedSource) : NewsRepository {
 
 }
 
-class AntaraRssNewsRepository : NewsRepository by RssNewsRepository(NewsSources.antara)
+class AntaraRssNewsRepository : NewsRepository by RssNewsRepository(NewsSources.antaraTekno)
 
 class MultiSourceNewsRepository(
     private val sources: List<NewsRepository>,
@@ -273,4 +303,3 @@ class MultiSourceNewsRepository(
 }
 
 class NewsSourcesUnavailableException : Exception("Semua feed berita gagal dimuat")
-
