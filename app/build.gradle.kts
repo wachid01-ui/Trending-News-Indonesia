@@ -39,6 +39,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
 

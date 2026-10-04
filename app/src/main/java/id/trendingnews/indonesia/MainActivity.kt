@@ -1,5 +1,6 @@
 package id.trendingnews.indonesia
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -77,6 +78,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import id.trendingnews.indonesia.ads.AdManager
+import id.trendingnews.indonesia.ads.BannerAdView
+import id.trendingnews.indonesia.ads.NativeAdCard
 import id.trendingnews.indonesia.data.MultiSourceNewsRepository
 import id.trendingnews.indonesia.data.NewsArticle
 import id.trendingnews.indonesia.data.NewsSources
@@ -97,6 +101,7 @@ enum class ScreenTab(val label: String, val icon: String) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AdManager.initialize(this)
         setContent { TrendingNewsApp() }
     }
 }
@@ -127,6 +132,7 @@ private fun MainScreen() {
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val activity = context as? Activity
 
     suspend fun fetchNews() {
         isLoading = true
@@ -158,6 +164,16 @@ private fun MainScreen() {
             bookmarkedIds - articleId
         } else {
             bookmarkedIds + articleId
+        }
+    }
+
+    fun openArticle(article: NewsArticle) {
+        if (activity != null) {
+            AdManager.onArticleOpened(activity) {
+                selectedArticle = article
+            }
+        } else {
+            selectedArticle = article
         }
     }
 
@@ -205,21 +221,24 @@ private fun MainScreen() {
     Scaffold(
         bottomBar = {
             if (selectedArticle == null) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    ScreenTab.entries.forEach { tab ->
-                        val isSelected = currentTab == tab
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                currentTab = tab
-                                if (tab != ScreenTab.BERANDA) isSearchActive = false
-                            },
-                            icon = { Text(tab.icon, fontSize = 20.sp) },
-                            label = { Text(tab.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                            ),
-                        )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    BannerAdView()
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        ScreenTab.entries.forEach { tab ->
+                            val isSelected = currentTab == tab
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = {
+                                    currentTab = tab
+                                    if (tab != ScreenTab.BERANDA) isSearchActive = false
+                                },
+                                icon = { Text(tab.icon, fontSize = 20.sp) },
+                                label = { Text(tab.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -254,7 +273,7 @@ private fun MainScreen() {
                             if (!isSearchActive) searchQuery = ""
                         },
                         onSearchQueryChange = { searchQuery = it },
-                        onArticleClick = { selectedArticle = it },
+                        onArticleClick = ::openArticle,
                         onBookmarkClick = { toggleBookmark(it.id) },
                         onRetry = { scope.launch { fetchNews() } },
                         modifier = Modifier.padding(padding),
@@ -264,7 +283,7 @@ private fun MainScreen() {
                     BookmarkScreenContent(
                         articles = filteredArticles,
                         bookmarkedIds = bookmarkedIds,
-                        onArticleClick = { selectedArticle = it },
+                        onArticleClick = ::openArticle,
                         onBookmarkClick = { toggleBookmark(it.id) },
                         modifier = Modifier.padding(padding),
                     )
@@ -552,15 +571,22 @@ private fun HomeScreenContent(
             }
         }
 
-        items(articles, key = { it.id }) { article ->
-            val isBookmarked = article.id in bookmarkedIds
-            NewsCard(
-                article = article,
-                isBookmarked = isBookmarked,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 7.dp),
-                onClick = { onArticleClick(article) },
-                onBookmarkClick = { onBookmarkClick(article) },
-            )
+        articles.forEachIndexed { index, article ->
+            if (index > 0 && index % 4 == 0) {
+                item(key = "native_ad_home_$index") {
+                    NativeAdCard(Modifier.padding(horizontal = 20.dp, vertical = 7.dp))
+                }
+            }
+            item(key = article.id) {
+                val isBookmarked = article.id in bookmarkedIds
+                NewsCard(
+                    article = article,
+                    isBookmarked = isBookmarked,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 7.dp),
+                    onClick = { onArticleClick(article) },
+                    onBookmarkClick = { onBookmarkClick(article) },
+                )
+            }
         }
     }
 }
@@ -616,14 +642,21 @@ private fun BookmarkScreenContent(
                 }
             }
         } else {
-            items(articles, key = { it.id }) { article ->
-                NewsCard(
-                    article = article,
-                    isBookmarked = true,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 7.dp),
-                    onClick = { onArticleClick(article) },
-                    onBookmarkClick = { onBookmarkClick(article) },
-                )
+            articles.forEachIndexed { index, article ->
+                if (index > 0 && index % 4 == 0) {
+                    item(key = "native_ad_bookmark_$index") {
+                        NativeAdCard(Modifier.padding(horizontal = 20.dp, vertical = 7.dp))
+                    }
+                }
+                item(key = article.id) {
+                    NewsCard(
+                        article = article,
+                        isBookmarked = true,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 7.dp),
+                        onClick = { onArticleClick(article) },
+                        onBookmarkClick = { onBookmarkClick(article) },
+                    )
+                }
             }
         }
     }
